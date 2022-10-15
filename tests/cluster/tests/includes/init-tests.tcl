@@ -27,11 +27,23 @@ test "Cluster nodes are reachable" {
 
 test "Cluster nodes hard reset" {
     foreach_redis_id id {
+        if {$::valgrind} {
+            set node_timeout 10000
+        } else {
+            set node_timeout 3000
+        }
         catch {R $id flushall} ; # May fail for readonly slaves.
+        R $id MULTI
         R $id cluster reset hard
         R $id cluster set-config-epoch [expr {$id+1}]
-        R $id config set cluster-node-timeout 3000
+        R $id EXEC
+        R $id config set cluster-node-timeout $node_timeout
         R $id config set cluster-slave-validity-factor 10
+        R $id config set loading-process-events-interval-bytes 2097152
+        R $id config set key-load-delay 0
+        R $id config set repl-diskless-load disabled
+        R $id config set cluster-announce-hostname ""
+        R $id DEBUG DROP-CLUSTER-PACKET-FILTER -1
         R $id config rewrite
     }
 }
